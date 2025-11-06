@@ -10,6 +10,7 @@ import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.kafka.annotation.KafkaListener;
 import org.springframework.stereotype.Component;
+import org.springframework.web.client.RestTemplate;
 
 @Component
 public class KafkaTransactionListener {
@@ -18,10 +19,12 @@ public class KafkaTransactionListener {
 
     private final UserRepository userRepository;
     private final TransactionRepository transactionRepository;
+    private final RestTemplate restTemplate;
 
-    public KafkaTransactionListener(UserRepository userRepository, TransactionRepository transactionRepository) {
+    public KafkaTransactionListener(UserRepository userRepository, TransactionRepository transactionRepository, RestTemplate restTemplate) {
         this.userRepository = userRepository;
         this.transactionRepository = transactionRepository;
+        this.restTemplate = restTemplate;
     }
 
     @Transactional
@@ -50,19 +53,31 @@ public class KafkaTransactionListener {
             return;
         }
 
+        float incentive = 0f;
+        try {
+            Incentive response = restTemplate.postForObject(
+                    "http://localhost:8080/incentive", transaction, Incentive.class);
+            if (response != null) {
+                incentive = Math.max(0f, response.getAmount());
+            }
+            logger.info("Incentive API returned amount: {}", incentive);
+        } catch (Exception e) {
+            logger.warn("Incentive API call failed, defaulting to zero", e);
+        }
+
         sender.setBalance(sender.getBalance() - amount);
-        recipient.setBalance(recipient.getBalance() + amount);
+        recipient.setBalance(recipient.getBalance() + amount + incentive);
 
         userRepository.save(sender);
         userRepository.save(recipient);
 
-        TransactionRecord transactionRecord = new TransactionRecord(sender, recipient, amount);
+        TransactionRecord transactionRecord = new TransactionRecord(sender, recipient, amount, incentive);
         transactionRepository.save(transactionRecord);
 
-        logger.debug("Processed tx sender {} recipient {} amount {}", senderId, recipientId, amount);
+        logger.debug("Processed tx sender {} recipient {} amount {} incentive {}", senderId, recipientId, amount, incentive);
 
-        var waldorf = userRepository.findByName("waldorf");
-        System.out.println("Waldorf balance: " + waldorf.getBalance());
+        var wilbur = userRepository.findByName("wilbur");
+        System.out.println("wilbur balance: " + wilbur.getBalance());
 
     }
 }
