@@ -21,21 +21,26 @@ public class TransactionRecord {
     @Column(nullable = false)
     private float amount;
 
+    @Column(nullable = false)
+    private float incentive;
+
     @Column(nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
     protected TransactionRecord() {}
 
-    public TransactionRecord(UserRecord sender, UserRecord recipient, float amount) {
+    public TransactionRecord(UserRecord sender, UserRecord recipient, float amount, float incentive) {
         this.sender = sender;
         this.recipient = recipient;
         this.amount = amount;
+        this.incentive = incentive;
     }
 
     public Long getId() { return id; }
     public UserRecord getSender() { return sender; }
     public UserRecord getRecipient() { return recipient; }
     public float getAmount() { return amount; }
+    public float getIncentive() { return incentive; }
     public Instant getCreatedAt() { return createdAt; }
 
 }
